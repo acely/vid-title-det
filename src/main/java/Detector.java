@@ -1,8 +1,10 @@
 Required OpenCV imports (uncomment when OpenCV is available):
 import org.opencv.core.Mat;
 import org.opencv.imgcodecs.Imgcodecs; // For Imgcodecs.imread()
-import org.opencv.videoio.VideoCapture; // For video capture operations
-import org.opencv.videoio.Videoio; // For Videoio.CAP_PROP_FPS
+// import org.opencv.videoio.VideoCapture; // For video capture operations
+// import org.opencv.videoio.Videoio; // For Videoio.CAP_PROP_FPS
+import org.bytedeco.javacv.FFmpegFrameGrabber; // For video capture operations with FFmpeg
+import org.bytedeco.javacv.OpenCVFrameConverter; // To convert FFmpeg frames to OpenCV Mat
 import org.opencv.imgproc.Imgproc; // For Imgproc.matchTemplate() and other image processing
 import org.opencv.core.Core; // For Core.normalize(), Core.minMaxLoc(), Core.NATIVE_LIBRARY_NAME
 import org.opencv.core.CvType; // For Mat data types like CvType.CV_32FC1
@@ -40,20 +42,14 @@ public class Detector {
 
         // Declare OpenCV related Mat objects outside try, so they can be in a finally block for release.
         Mat templateImage = null;
-        VideoCapture videoCapture = null;
+        // VideoCapture videoCapture = null; // Replaced with FFmpegFrameGrabber
+        FFmpegFrameGrabber grabber = null; // FFmpegFrameGrabber for video input
+        OpenCVFrameConverter.ToMat converter = null; // Converter for FFmpeg frames to OpenCV Mat
         Mat frame = null;
 
         try {
-            // --- Load Native OpenCV Library (Uncomment to use OpenCV) ---
-            try {
-                System.loadLibrary(Core.NATIVE_LIBRARY_NAME); // Loads the OpenCV native library
-                System.out.println("OpenCV Native Library loaded successfully.");
-            } catch (UnsatisfiedLinkError e) {
-                System.err.println("Native code library failed to load. Check java.library.path: " + System.getProperty("java.library.path"));
-                System.err.println("Please ensure that the OpenCV native libraries (e.g., .dll, .so, .dylib) are correctly configured.");
-                System.err.println("Error message: " + e.getMessage());
-                System.exit(1); // Critical error, cannot proceed without OpenCV natives
-            }
+            // FFmpegFrameGrabber handles its own native libraries.
+            // System.loadLibrary(Core.NATIVE_LIBRARY_NAME); // No longer needed for FFmpeg
 
             // --- Load Template Image (Uncomment to use OpenCV) ---
             System.out.println("Attempting to load template image: " + imagePath);
@@ -65,14 +61,16 @@ public class Detector {
             }
             System.out.println("Placeholder: Image loading logic would be here (inside try block).");
 
-            // --- Process Video (Uncomment to use OpenCV) ---
-            videoCapture = new VideoCapture(); // OpenCV class for video operations
-            if (!videoCapture.open(videoPath)) { // Open the video file specified by videoPath
-               throw new IOException("Error: Could not open video file: " + videoPath + ". Check path and OpenCV setup.");
-            } else {
-               System.out.println("Video file opened successfully (stubbed). FPS: " + videoCapture.get(Videoio.CAP_PROP_FPS));
+            // --- Process Video (Using FFmpegFrameGrabber) ---
+            grabber = new FFmpegFrameGrabber(videoPath);
+            converter = new OpenCVFrameConverter.ToMat(); // Initialize converter
+            try {
+                grabber.start(); // Start the grabber
+                System.out.println("Video file opened successfully using FFmpegFrameGrabber. Actual FPS: " + grabber.getFrameRate());
+            } catch (org.bytedeco.javacv.FrameGrabber.Exception e) {
+                throw new IOException("Error: Could not start FFmpegFrameGrabber for video file: " + videoPath + ". " + e.getMessage(), e);
             }
-            frame = new Mat(); // Mat object to store each frame read from video
+            frame = new Mat(); // Mat object to store each converted frame
 
             // Add dummy throws to satisfy compiler for specific catch blocks when OpenCV code is commented out.
             // These can be removed if the actual OpenCV operations (which can throw these) are uncommented.
@@ -83,19 +81,27 @@ public class Detector {
             // This is where you would uncomment the actual OpenCV frame processing logic.
             
             int processingFrameCount = 0;
-            double actualFps = videoCapture.get(Videoio.CAP_PROP_FPS);
+            // double actualFps = videoCapture.get(Videoio.CAP_PROP_FPS); // Replaced by grabber.getFrameRate()
+            double actualFps = grabber.getFrameRate();
             if (actualFps <= 0) actualFps = 30; // Default FPS if not available or invalid
             boolean actualIsTemplateVisible = false;
             double actualAppearanceStartTimeSeconds = -1.0;
             
-            System.out.println("Starting ACTUAL video processing loop (stubbed)...");
-            while (videoCapture.read(frame)) { // Read frames one by one from the video
-                if (frame.empty()) {
-                    System.err.println("Warning: Read an empty frame from video.");
+            System.out.println("Starting ACTUAL video processing loop (using FFmpegFrameGrabber)...");
+            org.bytedeco.javacv.Frame capturedFrame;
+            while ((capturedFrame = grabber.grab()) != null) { // Grab frames one by one
+                frame = converter.convert(capturedFrame); // Convert to OpenCV Mat
+                if (frame == null || frame.empty()) {
+                    System.err.println("Warning: Grabbed an empty or null frame from video.");
+                    if (capturedFrame != null && capturedFrame.imageHeight > 0 && capturedFrame.imageWidth > 0) {
+                         // FFmpeg might return a frame with data but converter fails.
+                         System.err.println("Captured frame had dimensions: " + capturedFrame.imageWidth + "x" + capturedFrame.imageHeight);
+                    }
                     continue;
                 }
                 processingFrameCount++;
-                double actualCurrentTimeSeconds = (double) processingFrameCount / actualFps;
+                // double actualCurrentTimeSeconds = (double) processingFrameCount / actualFps; // Replaced by grabber.getTimestamp()
+                double actualCurrentTimeSeconds = grabber.getTimestamp() / 1000000.0; // Timestamp in seconds
             
                 // --- Template Matching (OpenCV Stub) ---
                 if (templateImage != null && !templateImage.empty() && !frame.empty()) {
@@ -143,54 +149,14 @@ public class Detector {
             
             System.out.println("ACTUAL video processing finished. Total frames processed: " + processingFrameCount);
             if (actualIsTemplateVisible) {
-                double videoEndTime = (double) processingFrameCount / actualFps;
+                // double videoEndTime = (double) processingFrameCount / actualFps; // Replaced by grabber.getTimestamp()
+                double videoEndTime = grabber.getTimestamp() / 1000000.0; // Timestamp in seconds
                 String tsEntry = String.format("Appeared: %.2fs, Disappeared: at end of video (approx. %.2fs, Frame: %d)",
                         actualAppearanceStartTimeSeconds, videoEndTime, processingFrameCount);
                 detectionTimestamps.add(tsEntry);
                 System.out.println("LOG: Template was still visible at end of ACTUAL video. Logged: " + tsEntry);
             }
             // --- End of Main Video Processing Loop ---
-
-
-            // --- SIMULATION LOGIC (Remove or comment out when using actual OpenCV video processing) ---
-            // The following loop simulates video frames and template detection to test the timestamping logic.
-            // When you uncomment the OpenCV video processing loop above, you should remove or comment out this simulation.
-            int frameCount = 0;
-            double fps = 30; // Simulated FPS
-            boolean isTemplateVisible = false;
-            double appearanceStartTimeSeconds = -1.0;
-
-            int simulatedFrameCount = 300;
-            System.out.println("SIMULATING video processing for " + simulatedFrameCount + " frames at " + fps + " FPS to test timestamp logic...");
-            for (frameCount = 1; frameCount <= simulatedFrameCount; frameCount++) {
-                double currentTimeSeconds = (double) frameCount / fps;
-                boolean templateFoundInFrame = (frameCount > 50 && frameCount < 100) || (frameCount > 150 && frameCount < 200);
-
-                if (templateFoundInFrame) {
-                    if (!isTemplateVisible) {
-                        isTemplateVisible = true;
-                        appearanceStartTimeSeconds = currentTimeSeconds;
-                    }
-                } else {
-                    if (isTemplateVisible) {
-                        isTemplateVisible = false;
-                        double disappearanceTimeSeconds = currentTimeSeconds;
-                        String timestampEntry = String.format("Appeared: %.2fs, Disappeared: %.2fs (Frames: approx %d to %d)",
-                                appearanceStartTimeSeconds, disappearanceTimeSeconds,
-                                (int) (appearanceStartTimeSeconds * fps) +1, frameCount - 1);
-                        detectionTimestamps.add(timestampEntry);
-                    }
-                }
-            }
-            System.out.println("SIMULATED video processing finished. Total frames processed: " + (frameCount -1));
-
-            if (isTemplateVisible) {
-                double videoEndTimeSeconds = (double) (frameCount-1) / fps;
-                String timestampEntry = String.format("Appeared: %.2fs, Disappeared: at end of video (approx. %.2fs, Frame: %d)",
-                        appearanceStartTimeSeconds, videoEndTimeSeconds, frameCount-1);
-                detectionTimestamps.add(timestampEntry);
-            }
-            // --- END OF SIMULATION LOGIC ---
 
         } catch (FileNotFoundException e) {
             System.err.println("File Error: " + e.getMessage());
@@ -206,11 +172,20 @@ public class Detector {
             // --- Release Resources (OpenCV Stub) ---
             // Important to release OpenCV Mat and VideoCapture objects to free native memory.
             // Uncomment these when you use actual OpenCV objects.
-            System.out.println("Attempting to release OpenCV resources (stubbed)...");
-            if (videoCapture != null && videoCapture.isOpened()) {
-                videoCapture.release(); // Release video capture resources
-                System.out.println("Video capture released (stubbed).");
+            System.out.println("Attempting to release resources...");
+            if (grabber != null) {
+                try {
+                    grabber.stop(); // Stop the grabber
+                    grabber.close(); // Close the grabber and release resources
+                    System.out.println("FFmpegFrameGrabber stopped and closed.");
+                } catch (org.bytedeco.javacv.FrameGrabber.Exception e) {
+                    System.err.println("Error stopping/closing FFmpegFrameGrabber: " + e.getMessage());
+                }
             }
+            // if (videoCapture != null && videoCapture.isOpened()) { // Replaced by grabber release
+            //     videoCapture.release(); // Release video capture resources
+            //     System.out.println("Video capture released (stubbed).");
+            // }
             if (templateImage != null) {
                templateImage.release(); // Release template image Mat
                System.out.println("Template image released (stubbed).");
