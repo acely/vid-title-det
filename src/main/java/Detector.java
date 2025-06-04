@@ -1,11 +1,11 @@
-// Required OpenCV imports (uncomment when OpenCV is available):
-// import org.opencv.core.Mat;
-// import org.opencv.imgcodecs.Imgcodecs; // For Imgcodecs.imread()
-// import org.opencv.videoio.VideoCapture; // For video capture operations
-// import org.opencv.videoio.Videoio; // For Videoio.CAP_PROP_FPS
-// import org.opencv.imgproc.Imgproc; // For Imgproc.matchTemplate() and other image processing
-// import org.opencv.core.Core; // For Core.normalize(), Core.minMaxLoc(), Core.NATIVE_LIBRARY_NAME
-// import org.opencv.core.CvType; // For Mat data types like CvType.CV_32FC1
+Required OpenCV imports (uncomment when OpenCV is available):
+import org.opencv.core.Mat;
+import org.opencv.imgcodecs.Imgcodecs; // For Imgcodecs.imread()
+import org.opencv.videoio.VideoCapture; // For video capture operations
+import org.opencv.videoio.Videoio; // For Videoio.CAP_PROP_FPS
+import org.opencv.imgproc.Imgproc; // For Imgproc.matchTemplate() and other image processing
+import org.opencv.core.Core; // For Core.normalize(), Core.minMaxLoc(), Core.NATIVE_LIBRARY_NAME
+import org.opencv.core.CvType; // For Mat data types like CvType.CV_32FC1
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,40 +39,40 @@ public class Detector {
         List<String> detectionTimestamps = new ArrayList<>();
 
         // Declare OpenCV related Mat objects outside try, so they can be in a finally block for release.
-        // Mat templateImage = null;
-        // VideoCapture videoCapture = null;
-        // Mat frame = null;
+        Mat templateImage = null;
+        VideoCapture videoCapture = null;
+        Mat frame = null;
 
         try {
             // --- Load Native OpenCV Library (Uncomment to use OpenCV) ---
-            // try {
-            //     System.loadLibrary(Core.NATIVE_LIBRARY_NAME); // Loads the OpenCV native library
-            //     System.out.println("OpenCV Native Library loaded successfully.");
-            // } catch (UnsatisfiedLinkError e) {
-            //     System.err.println("Native code library failed to load. Check java.library.path: " + System.getProperty("java.library.path"));
-            //     System.err.println("Please ensure that the OpenCV native libraries (e.g., .dll, .so, .dylib) are correctly configured.");
-            //     System.err.println("Error message: " + e.getMessage());
-            //     System.exit(1); // Critical error, cannot proceed without OpenCV natives
-            // }
+            try {
+                System.loadLibrary(Core.NATIVE_LIBRARY_NAME); // Loads the OpenCV native library
+                System.out.println("OpenCV Native Library loaded successfully.");
+            } catch (UnsatisfiedLinkError e) {
+                System.err.println("Native code library failed to load. Check java.library.path: " + System.getProperty("java.library.path"));
+                System.err.println("Please ensure that the OpenCV native libraries (e.g., .dll, .so, .dylib) are correctly configured.");
+                System.err.println("Error message: " + e.getMessage());
+                System.exit(1); // Critical error, cannot proceed without OpenCV natives
+            }
 
             // --- Load Template Image (Uncomment to use OpenCV) ---
-            // System.out.println("Attempting to load template image: " + imagePath);
-            // templateImage = Imgcodecs.imread(imagePath); // OpenCV function to read an image from file
-            // if (templateImage == null || templateImage.empty()) { // Check if image loading failed
-            //     throw new FileNotFoundException("Error: Could not load template image from path: " + imagePath + ". Check path and OpenCV setup.");
-            // } else {
-            //     System.out.println("Template image loaded successfully (stubbed). Dimensions: " + templateImage.width() + "x" + templateImage.height());
-            // }
+            System.out.println("Attempting to load template image: " + imagePath);
+            templateImage = Imgcodecs.imread(imagePath); // OpenCV function to read an image from file
+            if (templateImage == null || templateImage.empty()) { // Check if image loading failed
+                throw new FileNotFoundException("Error: Could not load template image from path: " + imagePath + ". Check path and OpenCV setup.");
+            } else {
+                System.out.println("Template image loaded successfully (stubbed). Dimensions: " + templateImage.width() + "x" + templateImage.height());
+            }
             System.out.println("Placeholder: Image loading logic would be here (inside try block).");
 
             // --- Process Video (Uncomment to use OpenCV) ---
-            // videoCapture = new VideoCapture(); // OpenCV class for video operations
-            // if (!videoCapture.open(videoPath)) { // Open the video file specified by videoPath
-            //    throw new IOException("Error: Could not open video file: " + videoPath + ". Check path and OpenCV setup.");
-            // } else {
-            //    System.out.println("Video file opened successfully (stubbed). FPS: " + videoCapture.get(Videoio.CAP_PROP_FPS));
-            // }
-            // frame = new Mat(); // Mat object to store each frame read from video
+            videoCapture = new VideoCapture(); // OpenCV class for video operations
+            if (!videoCapture.open(videoPath)) { // Open the video file specified by videoPath
+               throw new IOException("Error: Could not open video file: " + videoPath + ". Check path and OpenCV setup.");
+            } else {
+               System.out.println("Video file opened successfully (stubbed). FPS: " + videoCapture.get(Videoio.CAP_PROP_FPS));
+            }
+            frame = new Mat(); // Mat object to store each frame read from video
 
             // Add dummy throws to satisfy compiler for specific catch blocks when OpenCV code is commented out.
             // These can be removed if the actual OpenCV operations (which can throw these) are uncommented.
@@ -81,74 +81,74 @@ public class Detector {
 
             // --- Main Video Processing Loop (Commented out - Simulation below is active) ---
             // This is where you would uncomment the actual OpenCV frame processing logic.
-            //
-            // int processingFrameCount = 0;
-            // double actualFps = videoCapture.get(Videoio.CAP_PROP_FPS);
-            // if (actualFps <= 0) actualFps = 30; // Default FPS if not available or invalid
-            // boolean actualIsTemplateVisible = false;
-            // double actualAppearanceStartTimeSeconds = -1.0;
-            //
-            // System.out.println("Starting ACTUAL video processing loop (stubbed)...");
-            // while (videoCapture.read(frame)) { // Read frames one by one from the video
-            //     if (frame.empty()) {
-            //         System.err.println("Warning: Read an empty frame from video.");
-            //         continue;
-            //     }
-            //     processingFrameCount++;
-            //     double actualCurrentTimeSeconds = (double) processingFrameCount / actualFps;
-            //
-            //     // --- Template Matching (OpenCV Stub) ---
-            //     if (templateImage != null && !templateImage.empty() && !frame.empty()) {
-            //         int result_cols = frame.cols() - templateImage.cols() + 1;
-            //         int result_rows = frame.rows() - templateImage.rows() + 1;
-            //
-            //         if (result_cols > 0 && result_rows > 0) {
-            //             Mat result = new Mat(result_rows, result_cols, CvType.CV_32FC1); // Result matrix for match scores
-            //             // Perform template matching: Compares templateImage with current frame
-            //             // Imgproc.TM_CCOEFF_NORMED is one of several comparison methods.
-            //             Imgproc.matchTemplate(frame, templateImage, result, Imgproc.TM_CCOEFF_NORMED);
-            //
-            //             // Normalize the results to a 0-1 range (optional, method-dependent)
-            //             // Core.normalize(result, result, 0, 1, Core.NORM_MINMAX, -1, new Mat());
-            //
-            //             // Find the best match location and score
-            //             Core.MinMaxLocResult mmr = Core.minMaxLoc(result);
-            //             double maxVal = mmr.maxVal; // For TM_CCOEFF_NORMED, maxVal is the correlation score
-            //
-            //             double threshold = 0.8; // Define a threshold for considering a match (tune this value)
-            //
-            //             boolean templateFoundThisFrame = maxVal >= threshold;
-            //
-            //             if (templateFoundThisFrame) {
-            //                 if (!actualIsTemplateVisible) {
-            //                     actualIsTemplateVisible = true;
-            //                     actualAppearanceStartTimeSeconds = actualCurrentTimeSeconds;
-            //                     System.out.println(String.format("Frame %d (%.2fs): Template APPEARED", processingFrameCount, actualCurrentTimeSeconds));
-            //                 }
-            //             } else {
-            //                 if (actualIsTemplateVisible) {
-            //                     actualIsTemplateVisible = false;
-            //                     String tsEntry = String.format("Appeared: %.2fs, Disappeared: %.2fs (Frames: approx %d to %d)",
-            //                             actualAppearanceStartTimeSeconds, actualCurrentTimeSeconds,
-            //                             (int) (actualAppearanceStartTimeSeconds * actualFps) + 1, processingFrameCount - 1);
-            //                     detectionTimestamps.add(tsEntry);
-            //                     System.out.println(String.format("Frame %d (%.2fs): Template DISAPPEARED. Logged: %s", processingFrameCount, actualCurrentTimeSeconds, tsEntry));
-            //                 }
-            //             }
-            //             result.release(); // Release the result matrix for this frame
-            //         }
-            //     }
-            //     // --- End of Template Matching ---
-            // } // End of actual video processing while loop
-            //
-            // System.out.println("ACTUAL video processing finished. Total frames processed: " + processingFrameCount);
-            // if (actualIsTemplateVisible) {
-            //     double videoEndTime = (double) processingFrameCount / actualFps;
-            //     String tsEntry = String.format("Appeared: %.2fs, Disappeared: at end of video (approx. %.2fs, Frame: %d)",
-            //             actualAppearanceStartTimeSeconds, videoEndTime, processingFrameCount);
-            //     detectionTimestamps.add(tsEntry);
-            //     System.out.println("LOG: Template was still visible at end of ACTUAL video. Logged: " + tsEntry);
-            // }
+            
+            int processingFrameCount = 0;
+            double actualFps = videoCapture.get(Videoio.CAP_PROP_FPS);
+            if (actualFps <= 0) actualFps = 30; // Default FPS if not available or invalid
+            boolean actualIsTemplateVisible = false;
+            double actualAppearanceStartTimeSeconds = -1.0;
+            
+            System.out.println("Starting ACTUAL video processing loop (stubbed)...");
+            while (videoCapture.read(frame)) { // Read frames one by one from the video
+                if (frame.empty()) {
+                    System.err.println("Warning: Read an empty frame from video.");
+                    continue;
+                }
+                processingFrameCount++;
+                double actualCurrentTimeSeconds = (double) processingFrameCount / actualFps;
+            
+                // --- Template Matching (OpenCV Stub) ---
+                if (templateImage != null && !templateImage.empty() && !frame.empty()) {
+                    int result_cols = frame.cols() - templateImage.cols() + 1;
+                    int result_rows = frame.rows() - templateImage.rows() + 1;
+            
+                    if (result_cols > 0 && result_rows > 0) {
+                        Mat result = new Mat(result_rows, result_cols, CvType.CV_32FC1); // Result matrix for match scores
+                        // Perform template matching: Compares templateImage with current frame
+                        // Imgproc.TM_CCOEFF_NORMED is one of several comparison methods.
+                        Imgproc.matchTemplate(frame, templateImage, result, Imgproc.TM_CCOEFF_NORMED);
+            
+                        // Normalize the results to a 0-1 range (optional, method-dependent)
+                        // Core.normalize(result, result, 0, 1, Core.NORM_MINMAX, -1, new Mat());
+            
+                        // Find the best match location and score
+                        Core.MinMaxLocResult mmr = Core.minMaxLoc(result);
+                        double maxVal = mmr.maxVal; // For TM_CCOEFF_NORMED, maxVal is the correlation score
+            
+                        double threshold = 0.8; // Define a threshold for considering a match (tune this value)
+            
+                        boolean templateFoundThisFrame = maxVal >= threshold;
+            
+                        if (templateFoundThisFrame) {
+                            if (!actualIsTemplateVisible) {
+                                actualIsTemplateVisible = true;
+                                actualAppearanceStartTimeSeconds = actualCurrentTimeSeconds;
+                                System.out.println(String.format("Frame %d (%.2fs): Template APPEARED", processingFrameCount, actualCurrentTimeSeconds));
+                            }
+                        } else {
+                            if (actualIsTemplateVisible) {
+                                actualIsTemplateVisible = false;
+                                String tsEntry = String.format("Appeared: %.2fs, Disappeared: %.2fs (Frames: approx %d to %d)",
+                                        actualAppearanceStartTimeSeconds, actualCurrentTimeSeconds,
+                                        (int) (actualAppearanceStartTimeSeconds * actualFps) + 1, processingFrameCount - 1);
+                                detectionTimestamps.add(tsEntry);
+                                System.out.println(String.format("Frame %d (%.2fs): Template DISAPPEARED. Logged: %s", processingFrameCount, actualCurrentTimeSeconds, tsEntry));
+                            }
+                        }
+                        result.release(); // Release the result matrix for this frame
+                    }
+                }
+                // --- End of Template Matching ---
+            } // End of actual video processing while loop
+            
+            System.out.println("ACTUAL video processing finished. Total frames processed: " + processingFrameCount);
+            if (actualIsTemplateVisible) {
+                double videoEndTime = (double) processingFrameCount / actualFps;
+                String tsEntry = String.format("Appeared: %.2fs, Disappeared: at end of video (approx. %.2fs, Frame: %d)",
+                        actualAppearanceStartTimeSeconds, videoEndTime, processingFrameCount);
+                detectionTimestamps.add(tsEntry);
+                System.out.println("LOG: Template was still visible at end of ACTUAL video. Logged: " + tsEntry);
+            }
             // --- End of Main Video Processing Loop ---
 
 
@@ -206,19 +206,19 @@ public class Detector {
             // --- Release Resources (OpenCV Stub) ---
             // Important to release OpenCV Mat and VideoCapture objects to free native memory.
             // Uncomment these when you use actual OpenCV objects.
-            // System.out.println("Attempting to release OpenCV resources (stubbed)...");
-            // if (videoCapture != null && videoCapture.isOpened()) {
-            //     videoCapture.release(); // Release video capture resources
-            //     System.out.println("Video capture released (stubbed).");
-            // }
-            // if (templateImage != null) {
-            //    templateImage.release(); // Release template image Mat
-            //    System.out.println("Template image released (stubbed).");
-            // }
-            // if (frame != null) {
-            //    frame.release(); // Release frame Mat
-            //    System.out.println("Frame mat released (stubbed).");
-            // }
+            System.out.println("Attempting to release OpenCV resources (stubbed)...");
+            if (videoCapture != null && videoCapture.isOpened()) {
+                videoCapture.release(); // Release video capture resources
+                System.out.println("Video capture released (stubbed).");
+            }
+            if (templateImage != null) {
+               templateImage.release(); // Release template image Mat
+               System.out.println("Template image released (stubbed).");
+            }
+            if (frame != null) {
+               frame.release(); // Release frame Mat
+               System.out.println("Frame mat released (stubbed).");
+            }
             System.out.println("Resource release block (stubbed) executed in finally.");
         }
 
