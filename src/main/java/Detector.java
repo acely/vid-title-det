@@ -1,30 +1,25 @@
-Required OpenCV imports (uncomment when OpenCV is available):
-import org.opencv.core.Mat;
-import org.opencv.imgcodecs.Imgcodecs; // For Imgcodecs.imread()
-// import org.opencv.videoio.VideoCapture; // For video capture operations
-// import org.opencv.videoio.Videoio; // For Videoio.CAP_PROP_FPS
-import org.bytedeco.javacv.FFmpegFrameGrabber; // For video capture operations with FFmpeg
-import org.bytedeco.javacv.OpenCVFrameConverter; // To convert FFmpeg frames to OpenCV Mat
-import org.opencv.imgproc.Imgproc; // For Imgproc.matchTemplate() and other image processing
-import org.opencv.core.Core; // For Core.normalize(), Core.minMaxLoc(), Core.NATIVE_LIBRARY_NAME
-import org.opencv.core.CvType; // For Mat data types like CvType.CV_32FC1
-
-import java.util.ArrayList;
-import java.util.List;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.bytedeco.javacpp.DoublePointer;
+import org.bytedeco.javacv.FFmpegFrameGrabber;
+import org.bytedeco.javacv.OpenCVFrameConverter;
+import org.bytedeco.javacv.OpenCVFrameConverter.ToMat;
+import org.bytedeco.opencv.opencv_core.*;
+import org.bytedeco.opencv.opencv_imgproc.*;
+import org.bytedeco.opencv.opencv_objdetect.*;
+import static org.bytedeco.opencv.global.opencv_core.*;
+import static org.bytedeco.opencv.global.opencv_imgcodecs.*;
+import static org.bytedeco.opencv.global.opencv_imgproc.*;
+import static org.bytedeco.opencv.global.opencv_objdetect.*;
+
 
 public class Detector {
 
     public static void main(String[] args) {
-        // IMPORTANT: To run this code with OpenCV:
-        // 1. Uncomment the OpenCV import statements above.
-        // 2. Ensure the OpenCV JAR file (e.g., opencv-XYZ.jar) is placed in the 'libs' folder of this project.
-        // 3. Configure your Eclipse project or runtime environment:
-        //    - Add all JARs from the 'libs' folder to the Java Build Path.
-        //    - Set the native library location for OpenCV (e.g., via -Djava.library.path=/path/to/opencv/build/java/arch).
-        //    - You might need to load the native library explicitly using System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-        //      at the beginning of your main method or in a static block (see example below).
 
         if (args.length != 2) {
             System.err.println("Usage: java Detector <imagePath> <videoPath>");
@@ -34,6 +29,7 @@ public class Detector {
 
         String imagePath = args[0];
         String videoPath = args[1];
+        File imgf = new File(imagePath);
 
         System.out.println("Image Path: " + imagePath);
         System.out.println("Video Path: " + videoPath);
@@ -44,26 +40,24 @@ public class Detector {
         Mat templateImage = null;
         // VideoCapture videoCapture = null; // Replaced with FFmpegFrameGrabber
         FFmpegFrameGrabber grabber = null; // FFmpegFrameGrabber for video input
-        OpenCVFrameConverter.ToMat converter = null; // Converter for FFmpeg frames to OpenCV Mat
+        ToMat converter = null; // Converter for FFmpeg frames to OpenCV Mat
         Mat frame = null;
 
         try {
-            // FFmpegFrameGrabber handles its own native libraries.
-            // System.loadLibrary(Core.NATIVE_LIBRARY_NAME); // No longer needed for FFmpeg
-
+        	
             // --- Load Template Image (Uncomment to use OpenCV) ---
             System.out.println("Attempting to load template image: " + imagePath);
-            templateImage = Imgcodecs.imread(imagePath); // OpenCV function to read an image from file
+            templateImage = imread(imgf.getAbsolutePath()); // OpenCV function to read an image from file
             if (templateImage == null || templateImage.empty()) { // Check if image loading failed
                 throw new FileNotFoundException("Error: Could not load template image from path: " + imagePath + ". Check path and OpenCV setup.");
             } else {
-                System.out.println("Template image loaded successfully (stubbed). Dimensions: " + templateImage.width() + "x" + templateImage.height());
+                System.out.println("Template image loaded successfully (stubbed). Dimensions: " + templateImage.cols() + "x" + templateImage.rows());
             }
             System.out.println("Placeholder: Image loading logic would be here (inside try block).");
 
             // --- Process Video (Using FFmpegFrameGrabber) ---
             grabber = new FFmpegFrameGrabber(videoPath);
-            converter = new OpenCVFrameConverter.ToMat(); // Initialize converter
+            converter = new OpenCVFrameConverter.ToMat();
             try {
                 grabber.start(); // Start the grabber
                 System.out.println("Video file opened successfully using FFmpegFrameGrabber. Actual FPS: " + grabber.getFrameRate());
@@ -71,14 +65,6 @@ public class Detector {
                 throw new IOException("Error: Could not start FFmpegFrameGrabber for video file: " + videoPath + ". " + e.getMessage(), e);
             }
             frame = new Mat(); // Mat object to store each converted frame
-
-            // Add dummy throws to satisfy compiler for specific catch blocks when OpenCV code is commented out.
-            // These can be removed if the actual OpenCV operations (which can throw these) are uncommented.
-            if (false) throw new FileNotFoundException("Dummy FNF to satisfy compiler");
-            if (false) throw new IOException("Dummy IOE to satisfy compiler");
-
-            // --- Main Video Processing Loop (Commented out - Simulation below is active) ---
-            // This is where you would uncomment the actual OpenCV frame processing logic.
             
             int processingFrameCount = 0;
             // double actualFps = videoCapture.get(Videoio.CAP_PROP_FPS); // Replaced by grabber.getFrameRate()
@@ -89,7 +75,7 @@ public class Detector {
             
             System.out.println("Starting ACTUAL video processing loop (using FFmpegFrameGrabber)...");
             org.bytedeco.javacv.Frame capturedFrame;
-            while ((capturedFrame = grabber.grab()) != null) { // Grab frames one by one
+            while ((capturedFrame = grabber.grabImage()) != null) { // Grab frames one by one
                 frame = converter.convert(capturedFrame); // Convert to OpenCV Mat
                 if (frame == null || frame.empty()) {
                     System.err.println("Warning: Grabbed an empty or null frame from video.");
@@ -103,29 +89,28 @@ public class Detector {
                 // double actualCurrentTimeSeconds = (double) processingFrameCount / actualFps; // Replaced by grabber.getTimestamp()
                 double actualCurrentTimeSeconds = grabber.getTimestamp() / 1000000.0; // Timestamp in seconds
             
-                // --- Template Matching (OpenCV Stub) ---
+                // --- Template Matching ---
                 if (templateImage != null && !templateImage.empty() && !frame.empty()) {
                     int result_cols = frame.cols() - templateImage.cols() + 1;
                     int result_rows = frame.rows() - templateImage.rows() + 1;
             
                     if (result_cols > 0 && result_rows > 0) {
-                        Mat result = new Mat(result_rows, result_cols, CvType.CV_32FC1); // Result matrix for match scores
+                        Mat result = new Mat(result_rows, result_cols, CV_32FC1); // Result matrix for match scores
                         // Perform template matching: Compares templateImage with current frame
                         // Imgproc.TM_CCOEFF_NORMED is one of several comparison methods.
-                        Imgproc.matchTemplate(frame, templateImage, result, Imgproc.TM_CCOEFF_NORMED);
+                        matchTemplate(frame, templateImage, result, TM_CCOEFF_NORMED);
             
                         // Normalize the results to a 0-1 range (optional, method-dependent)
                         // Core.normalize(result, result, 0, 1, Core.NORM_MINMAX, -1, new Mat());
             
-                        // Find the best match location and score
-                        Core.MinMaxLocResult mmr = Core.minMaxLoc(result);
-                        double maxVal = mmr.maxVal; // For TM_CCOEFF_NORMED, maxVal is the correlation score
+                        DoublePointer minVal= new DoublePointer();
+                        DoublePointer maxVal= new DoublePointer();
+                        Point min = new Point();
+                        Point max = new Point();
+                        minMaxLoc(result, minVal, maxVal, min, max, null);
             
-                        double threshold = 0.8; // Define a threshold for considering a match (tune this value)
             
-                        boolean templateFoundThisFrame = maxVal >= threshold;
-            
-                        if (templateFoundThisFrame) {
+                        if (min.x() > 0) {//@@@check
                             if (!actualIsTemplateVisible) {
                                 actualIsTemplateVisible = true;
                                 actualAppearanceStartTimeSeconds = actualCurrentTimeSeconds;
@@ -188,19 +173,19 @@ public class Detector {
             // }
             if (templateImage != null) {
                templateImage.release(); // Release template image Mat
-               System.out.println("Template image released (stubbed).");
+               System.out.println("Template image released.");
             }
             if (frame != null) {
                frame.release(); // Release frame Mat
-               System.out.println("Frame mat released (stubbed).");
+               System.out.println("Frame mat released.");
             }
-            System.out.println("Resource release block (stubbed) executed in finally.");
+            System.out.println("Resource release block executed in finally.");
         }
 
         // --- Output Final Timestamps ---
         System.out.println("\n--- Detection Timestamp Log ---");
         if (detectionTimestamps.isEmpty()) {
-            System.out.println("No template detections were recorded (this is expected if main OpenCV logic is stubbed/commented).");
+            System.out.println("No template detections were recorded.");
         } else {
             for (String entry : detectionTimestamps) {
                 System.out.println(entry);
