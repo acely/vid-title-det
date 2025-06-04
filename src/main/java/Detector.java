@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.bytedeco.javacpp.DoublePointer;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
+import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.OpenCVFrameConverter;
 import org.bytedeco.javacv.OpenCVFrameConverter.ToMat;
 import org.bytedeco.opencv.opencv_core.*;
@@ -17,7 +18,7 @@ import static org.bytedeco.opencv.global.opencv_imgproc.*;
 import static org.bytedeco.opencv.global.opencv_objdetect.*;
 
 
-public class Detector {
+public class DetectorV1 {
 
     public static void main(String[] args) {
 
@@ -47,7 +48,7 @@ public class Detector {
         	
             // --- Load Template Image (Uncomment to use OpenCV) ---
             System.out.println("Attempting to load template image: " + imagePath);
-            templateImage = imread(imgf.getAbsolutePath()); // OpenCV function to read an image from file
+            templateImage = imread(imgf.getAbsolutePath()); //,IMREAD_GRAYSCALE OpenCV function to read an image from file
             if (templateImage == null || templateImage.empty()) { // Check if image loading failed
                 throw new FileNotFoundException("Error: Could not load template image from path: " + imagePath + ". Check path and OpenCV setup.");
             } else {
@@ -74,34 +75,26 @@ public class Detector {
             double actualAppearanceStartTimeSeconds = -1.0;
             
             System.out.println("Starting ACTUAL video processing loop (using FFmpegFrameGrabber)...");
-            org.bytedeco.javacv.Frame capturedFrame;
+            Frame capturedFrame;
             while ((capturedFrame = grabber.grabImage()) != null) { // Grab frames one by one
                 frame = converter.convert(capturedFrame); // Convert to OpenCV Mat
                 if (frame == null || frame.empty()) {
-                    System.err.println("Warning: Grabbed an empty or null frame from video.");
-                    if (capturedFrame != null && capturedFrame.imageHeight > 0 && capturedFrame.imageWidth > 0) {
-                         // FFmpeg might return a frame with data but converter fails.
-                         System.err.println("Captured frame had dimensions: " + capturedFrame.imageWidth + "x" + capturedFrame.imageHeight);
-                    }
                     continue;
                 }
                 processingFrameCount++;
-                // double actualCurrentTimeSeconds = (double) processingFrameCount / actualFps; // Replaced by grabber.getTimestamp()
                 double actualCurrentTimeSeconds = grabber.getTimestamp() / 1000000.0; // Timestamp in seconds
             
                 // --- Template Matching ---
+                //x=120y=510w=1025h=100
                 if (templateImage != null && !templateImage.empty() && !frame.empty()) {
                     int result_cols = frame.cols() - templateImage.cols() + 1;
                     int result_rows = frame.rows() - templateImage.rows() + 1;
             
                     if (result_cols > 0 && result_rows > 0) {
-                        Mat result = new Mat(result_rows, result_cols, CV_32FC1); // Result matrix for match scores
+                        Mat result = new Mat(frame.rows(), frame.cols(), CV_32FC1); // Result matrix for match scores
                         // Perform template matching: Compares templateImage with current frame
-                        // Imgproc.TM_CCOEFF_NORMED is one of several comparison methods.
-                        matchTemplate(frame, templateImage, result, TM_CCOEFF_NORMED);
-            
-                        // Normalize the results to a 0-1 range (optional, method-dependent)
-                        // Core.normalize(result, result, 0, 1, Core.NORM_MINMAX, -1, new Mat());
+                        // TM_CCOEFF_NORMED is one of several comparison methods.
+                        matchTemplate(frame, templateImage, result, TM_CCORR_NORMED);//TM_CCOEFF_NORMED
             
                         DoublePointer minVal= new DoublePointer();
                         DoublePointer maxVal= new DoublePointer();
@@ -110,7 +103,7 @@ public class Detector {
                         minMaxLoc(result, minVal, maxVal, min, max, null);
             
             
-                        if (min.x() > 0) {//@@@check
+                        if (!maxVal.isNull() && maxVal.get() > 0.2) {//@@@check
                             if (!actualIsTemplateVisible) {
                                 actualIsTemplateVisible = true;
                                 actualAppearanceStartTimeSeconds = actualCurrentTimeSeconds;
