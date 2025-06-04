@@ -19,6 +19,8 @@ import static org.bytedeco.opencv.global.opencv_objdetect.*;
 
 public class Detector {
 
+    private static final double MATCH_THRESHOLD = 0.8;
+
     public static void main(String[] args) {
 
         if (args.length != 2) {
@@ -110,7 +112,7 @@ public class Detector {
                         minMaxLoc(result, minVal, maxVal, min, max, null);
             
             
-                        if (min.x() > 0) {//@@@check
+                        if (maxVal.get() > MATCH_THRESHOLD) {
                             if (!actualIsTemplateVisible) {
                                 actualIsTemplateVisible = true;
                                 actualAppearanceStartTimeSeconds = actualCurrentTimeSeconds;
