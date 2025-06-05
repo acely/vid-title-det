@@ -3,6 +3,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bytedeco.javacpp.DoublePointer;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
@@ -10,12 +11,9 @@ import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.OpenCVFrameConverter;
 import org.bytedeco.javacv.OpenCVFrameConverter.ToMat;
 import org.bytedeco.opencv.opencv_core.*;
-import org.bytedeco.opencv.opencv_imgproc.*;
-import org.bytedeco.opencv.opencv_objdetect.*;
 import static org.bytedeco.opencv.global.opencv_core.*;
 import static org.bytedeco.opencv.global.opencv_imgcodecs.*;
 import static org.bytedeco.opencv.global.opencv_imgproc.*;
-import static org.bytedeco.opencv.global.opencv_objdetect.*;
 
 
 public class DetectorV1 {
@@ -37,27 +35,27 @@ public class DetectorV1 {
 
         List<String> detectionTimestamps = new ArrayList<>();
 
-        // Declare OpenCV related Mat objects outside try, so they can be in a finally block for release.
         Mat templateImage = null;
-        // VideoCapture videoCapture = null; // Replaced with FFmpegFrameGrabber
         FFmpegFrameGrabber grabber = null; // FFmpegFrameGrabber for video input
         ToMat converter = null; // Converter for FFmpeg frames to OpenCV Mat
-        Mat frame = null;
 
         try {
         	
-            // --- Load Template Image (Uncomment to use OpenCV) ---
+            // --- Load Template Image ---
             System.out.println("Attempting to load template image: " + imagePath);
-            templateImage = imread(imgf.getAbsolutePath()); //,IMREAD_GRAYSCALE OpenCV function to read an image from file
+            templateImage = imread(imgf.getAbsolutePath(),IMREAD_GRAYSCALE); // OpenCV function to read an image from file
             if (templateImage == null || templateImage.empty()) { // Check if image loading failed
                 throw new FileNotFoundException("Error: Could not load template image from path: " + imagePath + ". Check path and OpenCV setup.");
             } else {
-                System.out.println("Template image loaded successfully (stubbed). Dimensions: " + templateImage.cols() + "x" + templateImage.rows());
+                System.out.println("Template image dimensions: " + templateImage.cols() + "x" + templateImage.rows());
             }
-            System.out.println("Placeholder: Image loading logic would be here (inside try block).");
 
             // --- Process Video (Using FFmpegFrameGrabber) ---
             grabber = new FFmpegFrameGrabber(videoPath);
+//            grabber.setImageWidth(1280);
+//            grabber.setImageHeight(720);
+            grabber.setPixelFormat(CV_8UC1);
+//            grabber.setVideoOption(imagePath, videoPath);
             converter = new OpenCVFrameConverter.ToMat();
             try {
                 grabber.start(); // Start the grabber
@@ -65,7 +63,6 @@ public class DetectorV1 {
             } catch (org.bytedeco.javacv.FrameGrabber.Exception e) {
                 throw new IOException("Error: Could not start FFmpegFrameGrabber for video file: " + videoPath + ". " + e.getMessage(), e);
             }
-            frame = new Mat(); // Mat object to store each converted frame
             
             int processingFrameCount = 0;
             // double actualFps = videoCapture.get(Videoio.CAP_PROP_FPS); // Replaced by grabber.getFrameRate()
@@ -76,34 +73,37 @@ public class DetectorV1 {
             
             System.out.println("Starting ACTUAL video processing loop (using FFmpegFrameGrabber)...");
             Frame capturedFrame;
+            Mat frame = null;
+            Rect roi = new Rect(120, 510, 1100, 130);//x=120y=510w=1025h=110
             while ((capturedFrame = grabber.grabImage()) != null) { // Grab frames one by one
-                frame = converter.convert(capturedFrame); // Convert to OpenCV Mat
+                frame = converter.convert(capturedFrame).apply(roi); // Convert to OpenCV Mat
                 if (frame == null || frame.empty()) {
                     continue;
                 }
                 processingFrameCount++;
+                if (processingFrameCount == 1) {
+                    System.out.println("First video frame dimensions: " + frame.cols() + "x" + frame.rows());
+                }
                 double actualCurrentTimeSeconds = grabber.getTimestamp() / 1000000.0; // Timestamp in seconds
             
                 // --- Template Matching ---
-                //x=120y=510w=1025h=100
+                
                 if (templateImage != null && !templateImage.empty() && !frame.empty()) {
                     int result_cols = frame.cols() - templateImage.cols() + 1;
                     int result_rows = frame.rows() - templateImage.rows() + 1;
             
                     if (result_cols > 0 && result_rows > 0) {
-                        Mat result = new Mat(frame.rows(), frame.cols(), CV_32FC1); // Result matrix for match scores
-                        // Perform template matching: Compares templateImage with current frame
-                        // TM_CCOEFF_NORMED is one of several comparison methods.
-                        matchTemplate(frame, templateImage, result, TM_CCORR_NORMED);//TM_CCOEFF_NORMED
+                        Mat result = new Mat(result_rows, result_cols, CV_32FC1); // Result matrix for match scores
+                        matchTemplate(frame, templateImage, result, TM_CCORR_NORMED);
+//                        matchTemplate(frame, templateImage, result, TM_CCOEFF_NORMED);
             
-                        DoublePointer minVal= new DoublePointer();
-                        DoublePointer maxVal= new DoublePointer();
+                        DoublePointer minVal= new DoublePointer(1);
+                        DoublePointer maxVal= new DoublePointer(1);
                         Point min = new Point();
                         Point max = new Point();
                         minMaxLoc(result, minVal, maxVal, min, max, null);
             
-            
-                        if (!maxVal.isNull() && maxVal.get() > 0.2) {//@@@check
+                        if (maxVal.get() > 0.85) {
                             if (!actualIsTemplateVisible) {
                                 actualIsTemplateVisible = true;
                                 actualAppearanceStartTimeSeconds = actualCurrentTimeSeconds;
@@ -122,7 +122,7 @@ public class DetectorV1 {
                         result.release(); // Release the result matrix for this frame
                     }
                 }
-                // --- End of Template Matching ---
+                frame.release();
             } // End of actual video processing while loop
             
             System.out.println("ACTUAL video processing finished. Total frames processed: " + processingFrameCount);
@@ -147,9 +147,6 @@ public class DetectorV1 {
             e.printStackTrace();
             System.exit(1);
         } finally {
-            // --- Release Resources (OpenCV Stub) ---
-            // Important to release OpenCV Mat and VideoCapture objects to free native memory.
-            // Uncomment these when you use actual OpenCV objects.
             System.out.println("Attempting to release resources...");
             if (grabber != null) {
                 try {
@@ -160,17 +157,9 @@ public class DetectorV1 {
                     System.err.println("Error stopping/closing FFmpegFrameGrabber: " + e.getMessage());
                 }
             }
-            // if (videoCapture != null && videoCapture.isOpened()) { // Replaced by grabber release
-            //     videoCapture.release(); // Release video capture resources
-            //     System.out.println("Video capture released (stubbed).");
-            // }
             if (templateImage != null) {
                templateImage.release(); // Release template image Mat
                System.out.println("Template image released.");
-            }
-            if (frame != null) {
-               frame.release(); // Release frame Mat
-               System.out.println("Frame mat released.");
             }
             System.out.println("Resource release block executed in finally.");
         }
@@ -186,4 +175,13 @@ public class DetectorV1 {
         }
         System.out.println("-----------------------------");
     }
+    
+    public static Scalar randColor(){
+        int b,g,r;
+        b= ThreadLocalRandom.current().nextInt(0, 255 + 1);
+        g= ThreadLocalRandom.current().nextInt(0, 255 + 1);
+        r= ThreadLocalRandom.current().nextInt(0, 255 + 1);
+        return new Scalar (b,g,r,0);
+     }
+    
 }
